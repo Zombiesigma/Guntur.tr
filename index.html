@@ -92,8 +92,12 @@
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;500;600;700&family=Caveat:wght@400;700&display=swap" rel="stylesheet">
     
+    <!-- Three.js for 3D Animation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
     <!-- Tambahkan EmailJS SDK -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    
     <style>
         :root {
             --primary-color: #d4a574;
@@ -136,16 +140,87 @@
             border-radius: 6px;
         }
 
-        /* Artistic Background */
+        /* 3D LOADER OVERLAY */
+        #loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #050505;
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 1s ease-out, visibility 1s;
+        }
+        
+        #canvas-loader {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .loader-text {
+            position: relative;
+            z-index: 10;
+            font-family: 'Courier New', monospace;
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            animation: flicker 2s infinite;
+        }
+
+        .loader-progress {
+            margin-top: 20px;
+            width: 200px;
+            height: 2px;
+            background: rgba(255,255,255,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .loader-bar {
+            width: 0%;
+            height: 100%;
+            background: var(--primary-color);
+            transition: width 0.2s;
+            box-shadow: 0 0 10px var(--primary-color);
+        }
+
+        @keyframes flicker {
+            0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+            20%, 24%, 55% { opacity: 0.5; }
+        }
+
+        /* 3D BACKGROUND CANVAS */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -10; /* Di belakang konten utama */
+            pointer-events: none; /* Agar klik tembus ke konten */
+        }
+
+        /* Artistic Background (Gradient Blobs - Layered on top of 3D) */
         .artistic-bg {
             position: fixed;
             width: 100%;
             height: 100%;
             top: 0;
             left: 0;
-            z-index: -1;
-            background: var(--dark-bg);
+            z-index: -5;
+            background: transparent; /* Transparan agar 3D terlihat */
             overflow: hidden;
+            pointer-events: none;
+            mix-blend-mode: overlay; /* Blend effect keren */
         }
 
         .paint-splash {
@@ -209,7 +284,7 @@
             position: absolute;
             top: 100%;
             left: 50%;
-            transform: translateX(-50%);
+            transform: translateX(-50%) translateY(10px);
             width: 700px;
             background: var(--card-bg);
             backdrop-filter: blur(20px);
@@ -218,15 +293,15 @@
             padding: 30px;
             opacity: 0;
             visibility: hidden;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 1000;
-            margin-top: 20px;
             pointer-events: none;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
         .dropdown.active .mega-menu {
             opacity: 1;
             visibility: visible;
-            margin-top: 10px;
+            transform: translateX(-50%) translateY(0);
             pointer-events: auto;
         }
         .mega-menu-section { padding: 15px; border-radius: 15px; transition: all 0.3s ease; }
@@ -611,8 +686,11 @@
             padding: 20px;
             color: white;
             font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
-        .chat-messages { flex: 1; padding: 20px; overflow-y: auto; }
+        .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
         .chat-input {
             padding: 15px;
             border-top: 1px solid var(--border-color);
@@ -639,43 +717,31 @@
             transition: transform 0.2s;
         }
         .chat-input button:hover { transform: scale(1.1); }
+        .chat-input button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-        /* Music Player */
-        .music-player {
-            position: fixed;
-            bottom: 30px;
-            left: 30px;
-            background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 15px 20px;
+        /* Typing indicator */
+        .typing-indicator {
             display: flex;
-            align-items: center;
-            gap: 15px;
-            z-index: 1000;
-            transition: all 0.3s ease;
+            gap: 4px;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            align-self: flex-start;
+            width: fit-content;
         }
-        .music-player:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(212, 165, 116, 0.3); }
-        .music-controls { display: flex; gap: 10px; }
-        .music-btn {
-            width: 35px;
-            height: 35px;
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--light-text);
             border-radius: 50%;
-            background: transparent;
-            border: 1px solid var(--border-color);
-            color: var(--light-text);
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            animation: bounce 1.4s infinite ease-in-out both;
+            opacity: 0.6;
         }
-        .music-btn:hover { background: var(--primary-color); border-color: var(--primary-color); transform: scale(1.1); }
-        .music-info { min-width: 200px; }
-        .music-title { font-weight: 600; margin-bottom: 5px; }
-        .music-artist { font-size: 12px; opacity: 0.7; }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
 
+       
         /* Search Overlay */
         .search-overlay {
             position: fixed;
@@ -737,18 +803,35 @@
         /* Responsive Design */
         @media (max-width: 768px) {
             .mega-menu { width: 90vw; left: 5vw; transform: none; }
+            .mega-menu { top: 60px; }
+            .dropdown.active .mega-menu { transform: translateY(0); }
             .hero-title { font-size: clamp(2rem, 10vw, 3.5rem); }
             .chat-box { width: 90vw; right: 5vw; }
-            .music-player { bottom: 20px; left: 20px; right: 20px; }
+
             .cursor, .cursor-follower { display: none; } /* Hide custom cursor on touch devices */
+            #loader-overlay { z-index: 100000; }
         }
         
         /* Form Styles */
         .form-success { background: rgba(72, 187, 120, 0.1); border: 1px solid #48bb78; color: #48bb78; }
         .form-error { background: rgba(245, 101, 101, 0.1); border: 1px solid #f56565; color: #f56565; }
+   
     </style>
 </head>
 <body data-theme="dark">
+    
+    <!-- 3D FUTURISTIC LOADER -->
+    <div id="loader-overlay">
+        <div id="canvas-loader"></div>
+        <div class="loader-text">GUNTUR PADILAH...</div>
+        <div class="loader-progress">
+            <div class="loader-bar" id="progressBar"></div>
+        </div>
+    </div>
+
+    <!-- 3D BACKGROUND CANVAS -->
+    <canvas id="bg-canvas">GP</canvas>
+
     <!-- Scroll Progress Bar -->
     <div class="scroll-progress" id="scrollProgress"></div>
 
@@ -789,7 +872,7 @@
                         <button class="nav-item hover:text-yellow-600 transition flex items-center" id="dropdownBtn">
                             Karya Saya <i class="fas fa-chevron-down ml-1 text-xs"></i>
                         </button>
-                        <div class="mega-menu">
+                        <div class="mega-menu" id="megaMenuContent">
                             <div class="grid grid-cols-3 gap-6">
                                 <div class="mega-menu-section">
                                     <h4 class="font-bold mb-4 text-yellow-600 serif-font"><i class="fas fa-book-open mr-2"></i> Tulisan</h4>
@@ -1306,40 +1389,457 @@
 
     <!-- Chat Widget -->
     <div class="chat-widget">
-        <div class="chat-button" id="chatButton"><i class="fas fa-comment-dots"></i></div>
+        <div class="chat-button" id="chatButton">
+            <i class="fas fa-robot"></i>
+        </div>
         <div class="chat-box" id="chatBox">
-            <div class="chat-header">Live Chat</div>
+            <div class="chat-header">
+                <i class="fas fa-headset"></i> Asisten Pribadi Guntur AI
+            </div>
             <div class="chat-messages" id="chatMessages">
-                <div class="mb-4">
+                <div class="mb-4 bot-msg">
                     <div class="bg-yellow-600 bg-opacity-20 rounded-lg p-3 inline-block max-w-xs">
-                        <p class="text-sm">Halo! Ada yang bisa saya bantu terkait karya atau proyek? 🎨</p>
+                        <p class="text-sm">Halo! Saya AI asisten pribadi Guntur Padilah. Ada yang bisa saya bantu terkait karya tulis, lukisan, atau proyek coding? 🎨✍️💻</p>
                     </div>
                 </div>
             </div>
             <div class="chat-input">
-                <input type="text" id="chatInput" placeholder="Tulis pesan...">
+                <input type="text" id="chatInput" placeholder="Tanya sesuatu...">
                 <button id="chatSendBtn"><i class="fas fa-paper-plane"></i></button>
             </div>
         </div>
     </div>
-
-    <!-- Music Player -->
-    <div class="music-player">
-        <div class="music-controls">
-            <button class="music-btn" id="prevBtn"><i class="fas fa-step-backward"></i></button>
-            <button class="music-btn" id="playBtn"><i class="fas fa-play"></i></button>
-            <button class="music-btn" id="nextBtn"><i class="fas fa-step-forward"></i></button>
-        </div>
-        <div class="music-info">
-            <div class="music-title">Judulnya apa ya</div>
-            <div class="music-artist">Ah</div>
-        </div>
+    
+    <!-- Tambahkan di bawah chat widget -->
+<div class="voice-widget">
+    <div class="voice-button" id="voiceButton">
+        <i class="fas fa-microphone"></i>
     </div>
+    <div class="voice-status" id="voiceStatus">
+        <div class="voice-pulse"></div>
+        <span>Mendengarkan...</span>
+    </div>
+</div>
 
     <!-- Scripts -->
+        <!-- Scripts -->
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
     <script>
-        // 1. INITIALIZATION & CONFIG
+        // ==========================================
+        // 1. 3D FUTURISTIC LOADER (Three.js) - UNCHANGED
+        // ==========================================
+        const initLoader = () => {
+            const container = document.getElementById('canvas-loader');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+            // Create Particles
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particlesCount = 2000;
+            const posArray = new Float32Array(particlesCount * 3);
+
+            for(let i = 0; i < particlesCount * 3; i++) {
+                posArray[i] = (Math.random() - 0.5) * 10;
+            }
+
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.02,
+                color: 0xd4a574,
+                transparent: true,
+                opacity: 0.8
+            });
+
+            const particlesMesh = new THREE.Points(particlesGeometry, material);
+            scene.add(particlesMesh);
+
+            // Create a Wireframe Icosahedron (The Core)
+            const geometry = new THREE.IcosahedronGeometry(1.5, 0);
+            const wireframe = new THREE.WireframeGeometry(geometry);
+            const line = new THREE.LineSegments(wireframe);
+            line.material.depthTest = false;
+            line.material.opacity = 0.3;
+            line.material.transparent = true;
+            line.material.color = new THREE.Color(0xe8b4a0);
+            scene.add(line);
+
+            camera.position.z = 4;
+
+            // Mouse interaction
+            let mouseX = 0;
+            let mouseY = 0;
+            
+            document.addEventListener('mousemove', (event) => {
+                mouseX = event.clientX / window.innerWidth - 0.5;
+                mouseY = event.clientY / window.innerHeight - 0.5;
+            });
+
+            // Animation Loop
+            const animate = () => {
+                requestAnimationFrame(animate);
+
+                particlesMesh.rotation.y += 0.001;
+                particlesMesh.rotation.x += 0.001;
+
+                line.rotation.x += 0.002;
+                line.rotation.y += 0.002;
+
+                // Subtle camera movement based on mouse
+                camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.05;
+                camera.position.y += (-mouseY * 0.5 - camera.position.y) * 0.05;
+                camera.lookAt(scene.position);
+
+                renderer.render(scene, camera);
+            };
+
+            animate();
+
+            // Handle Resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Fake Loading Progress
+            const progressBar = document.getElementById('progressBar');
+            let width = 0;
+            const interval = setInterval(() => {
+                if (width >= 100) {
+                    clearInterval(interval);
+                    // Hide Loader
+                    setTimeout(() => {
+                        document.getElementById('loader-overlay').style.opacity = '0';
+                        document.getElementById('loader-overlay').style.visibility = 'hidden';
+                        document.body.style.overflowY = 'auto'; // Enable scroll
+                    }, 500);
+                } else {
+                    width += Math.random() * 5; 
+                    if(width > 100) width = 100;
+                    progressBar.style.width = width + '%';
+                }
+            }, 100);
+
+            // Prevent scroll during loading
+            document.body.style.overflowY = 'hidden';
+        };
+
+        // Initialize Loader immediately
+        initLoader();
+
+        // ==========================================
+        // 2. 3D BACKGROUND SCENE (Performance Optimized - NO LINES)
+        // ==========================================
+        const initBackground = () => {
+            const canvas = document.getElementById('bg-canvas');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+            
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            // PARTICLES ONLY (No Lines for performance)
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particlesCount = 400; // Reduced count slightly for smoothness
+            const posArray = new Float32Array(particlesCount * 3);
+
+            for(let i = 0; i < particlesCount * 3; i++) {
+                posArray[i] = (Math.random() - 0.5) * 15; 
+            }
+
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+
+            // Material for dots
+            const particlesMaterial = new THREE.PointsMaterial({
+                size: 0.03,
+                color: 0xd4a574, // Primary Gold
+                transparent: true,
+                opacity: 0.6
+            });
+
+            const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+            scene.add(particlesMesh);
+
+            // FLOATING GEOMETRY (Icosahedrons)
+            const shapes = [];
+            const geometryGeo = new THREE.IcosahedronGeometry(1, 0);
+            const shapeMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xd4a574, 
+                wireframe: true,
+                transparent: true,
+                opacity: 0.05
+            });
+
+            for(let i=0; i<5; i++) {
+                const mesh = new THREE.Mesh(geometryGeo, shapeMaterial);
+                mesh.position.set(
+                    (Math.random() - 0.5) * 15,
+                    (Math.random() - 0.5) * 15,
+                    (Math.random() - 0.5) * 10
+                );
+                mesh.scale.setScalar(Math.random() * 2 + 0.5);
+                scene.add(mesh);
+                shapes.push({
+                    mesh: mesh,
+                    rotSpeed: (Math.random() - 0.5) * 0.002
+                });
+            }
+
+            camera.position.z = 5;
+
+            // Mouse Interaction Variables
+            let mouseX = 0;
+            let mouseY = 0;
+            let targetX = 0;
+            let targetY = 0;
+
+            const windowHalfX = window.innerWidth / 2;
+            const windowHalfY = window.innerHeight / 2;
+
+            document.addEventListener('mousemove', (event) => {
+                mouseX = (event.clientX - windowHalfX);
+                mouseY = (event.clientY - windowHalfY);
+            });
+
+            // ANIMATION LOOP
+            const clock = new THREE.Clock();
+
+            const animate = () => {
+                requestAnimationFrame(animate);
+                const elapsedTime = clock.getElapsedTime();
+
+                // Rotate Particles
+                particlesMesh.rotation.y = elapsedTime * 0.02; // Slow rotation
+
+                // Animate Shapes
+                shapes.forEach(item => {
+                    item.mesh.rotation.x += item.rotSpeed;
+                    item.mesh.rotation.y += item.rotSpeed;
+                    // Gentle floating
+                    item.mesh.position.y += Math.sin(elapsedTime + item.mesh.position.x) * 0.002;
+                });
+
+                // Parallax Camera Movement based on mouse
+                targetX = mouseX * 0.001;
+                targetY = mouseY * 0.001;
+
+                particlesMesh.rotation.y += 0.05 * (targetX - particlesMesh.rotation.y);
+                
+                // Subtle camera movement
+                camera.position.x += (mouseX * 0.0005 - camera.position.x) * 0.05;
+                camera.position.y += (-mouseY * 0.0005 - camera.position.y) * 0.05;
+                camera.lookAt(scene.position);
+
+                renderer.render(scene, camera);
+            };
+
+            animate();
+
+            // Handle Window Resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        };
+
+        // Start Background after a short delay to ensure layout is ready
+        setTimeout(initBackground, 100);
+
+        // ==========================================
+        // 3. AI CHAT SYSTEM (FIXED API PARAMS + TYPE CHECKING)
+        // ==========================================
+        
+        // PERSONAL DATA KNOWLEDGE BASE
+        const personalContext = `
+        Anda adalah asisten AI profesional untuk Guntur Padilah.
+        IDENTITAS:
+        - Nama: Guntur Padilah
+        - Profesi: Penulis (Novelis), Pelukis, Web Developer
+        - Lokasi: Sukabumi, Jawa Barat, Indonesia
+        - Email: gunturfadilah140@gmail.com
+        - WhatsApp: +62 856-5554-8656
+        - Website: gunturpadilah.web.id
+
+        KARYA UTAMA:
+        - Buku: "Beri Ruang Untuk Kelelahan" (Best Seller 2024, Penerbit Budhi Mulia)
+        - Sertifikat: Dicoding Indonesia (Web & JavaScript), Digitech University
+        
+        KEAHLIAN:
+        - Menulis: Fiksi, Non-Fiksi, Puisi (95% Fiksi)
+        - Seni: Oil Painting, Watercolor, Digital Art
+        - Tech: Frontend (90%), Backend (80%), UI/UX (87%)
+        
+        SOPAN RESPON:
+        - Jawab dengan ramah, profesional, dan informatif.
+        - Jika ada pertanyaan kolaborasi, arahkan ke email atau WhatsApp.
+        - Gunakan bahasa Indonesia.
+        - Jangan sesekali mengaku sebagai Guntur Padilah secara langsung, tetapi sebagai asisten yang mewakilinya.
+        `;
+
+        const chatButton = document.getElementById('chatButton');
+        const chatBox = document.getElementById('chatBox');
+        const chatInput = document.getElementById('chatInput');
+        const chatSendBtn = document.getElementById('chatSendBtn');
+        const chatMessages = document.getElementById('chatMessages');
+
+        // Chat UI Logic
+        chatButton.addEventListener('click', () => {
+            chatBox.classList.toggle('active');
+        });
+
+        function appendMessage(text, sender) {
+            const div = document.createElement('div');
+            div.className = 'mb-4';
+            
+            if (sender === 'user') {
+                div.classList.add('text-right');
+                div.innerHTML = `<div class="bg-yellow-600 text-white rounded-lg p-3 inline-block max-w-xs"><p class="text-sm">${text}</p></div>`;
+            } else {
+                div.innerHTML = `<div class="bg-yellow-600 bg-opacity-20 rounded-lg p-3 inline-block max-w-xs text-left"><p class="text-sm whitespace-pre-wrap">${text}</p></div>`;
+            }
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function showTyping() {
+            const div = document.createElement('div');
+            div.id = 'typingIndicator';
+            div.className = 'mb-4';
+            div.innerHTML = `
+                <div class="typing-indicator">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>`;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function removeTyping() {
+            const el = document.getElementById('typingIndicator');
+            if(el) el.remove();
+        }
+
+                        async function sendChatMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            // UI: User Message
+            appendMessage(message, 'user');
+            chatInput.value = '';
+            chatSendBtn.disabled = true;
+
+            // UI: Typing Indicator
+            showTyping();
+
+            // Combine context and user message
+            const fullPrompt = `${personalContext}\nUser: ${message}\nAsisten:`;
+
+            const url = "https://api.himmel.web.id/api/ai/gemini";
+            const params = new URLSearchParams({
+                "apikey": "hmlt_hOn2k83lsV2lhZ8LQD4n",
+                "question": fullPrompt
+            });
+
+            try {
+                const response = await fetch(`${url}?${params}`);
+                const rawData = await response.json();
+                
+                removeTyping();
+
+                let reply = "Maaf, sistem sedang sibuk.";
+
+                // --- LOGIKA PARSING DATA FINAL ---
+                
+                // 1. Cek struktur { success: true, data: { response: "..." } }
+                if (rawData.success && rawData.data && rawData.data.response) {
+                    reply = rawData.data.response;
+                }
+                // 2. Cek struktur String JSON yang perlu di-parse
+                else if (typeof rawData === 'string') {
+                    try {
+                        const parsed = JSON.parse(rawData);
+                        if (parsed.data && parsed.data.response) reply = parsed.data.response;
+                        else if (parsed.response) reply = parsed.response;
+                        else reply = rawData;
+                    } catch (e) {
+                        reply = rawData;
+                    }
+                }
+                // 3. Cek struktur Object biasa
+                else if (rawData.data && typeof rawData.data === 'string') {
+                    try {
+                        const parsed = JSON.parse(rawData.data);
+                        reply = parsed.response || rawData.data;
+                    } catch (e) {
+                        reply = rawData.data;
+                    }
+                }
+                else if (rawData.response) {
+                    reply = rawData.response;
+                }
+                else if (rawData.message) {
+                    reply = rawData.message;
+                }
+
+                // --- FORMATTING & CLEANUP (MENGHILANGKAN MARKDOWN KOTOR) ---
+
+                if (typeof reply === 'string') {
+                    
+                    // 1. Hapus kode block JSON ```json ... ```
+                    reply = reply.replace(/```json/g, '').replace(/```/g, '');
+                    
+                    // 2. Hapus tanda kutip di awal/akhir
+                    reply = reply.replace(/^"|"$/g, '');
+                    
+                    // 3. Konversi Markdown ke Teks Rapi
+                    // Mengubah **teks** menjadi *teks* (bold HTML) atau biarkan biasa?
+                    // Kita ubah menjadi elemen HTML agar bisa bold di dalam chat bubble
+                    
+                    // Ganti **bold** dengan <b>bold</b>
+                    reply = reply.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                    
+                    // Ganti *italic* dengan <i>italic</i>
+                    reply = reply.replace(/\*(.*?)\*/g, '<i>$1</i>');
+                    
+                    // Ganti # Heading menjadi <br><b>Heading</b>
+                    reply = reply.replace(/^# (.*$)/gm, '<br><b>$1</b>');
+                    reply = reply.replace(/^## (.*$)/gm, '<br><b>$1</b>');
+                    
+                    // Ganti - list item dengan bullet
+                    reply = reply.replace(/^- (.*$)/gm, '• $1');
+
+                    // 4. Konversi \n (backslash-n) menjadi baris baru <br>
+                    reply = reply.replace(/\\n/g, '<br>');
+
+                    // 5. Bersihkan spasi ganda
+                    reply = reply.replace(/  +/g, ' ');
+                }
+
+                appendMessage(reply, 'ai');
+
+            } catch (error) {
+                removeTyping();
+                console.error("AI Error:", error);
+                appendMessage("Maaf, terjadi kesalahan koneksi.", 'ai');
+            } finally {
+                chatSendBtn.disabled = false;
+            }
+        }
+
+        chatSendBtn.addEventListener('click', sendChatMessage);
+        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChatMessage(); });
+
+
+        // ==========================================
+        // 4. INITIALIZATION & CONFIG
         // ==========================================
         
         // Initialize AOS (Animate On Scroll)
@@ -1356,7 +1856,8 @@
         // Set Current Year
         document.getElementById('currentYear').textContent = new Date().getFullYear();
 
-        // 2. EMAILJS FORM HANDLING
+        // ==========================================
+        // 5. EMAILJS FORM HANDLING
         // ==========================================
         document.getElementById('contactForm').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -1438,36 +1939,48 @@
                 });
         });
 
-        // 3. UI INTERACTIONS & NAVIGATION
+        // ==========================================
+        // 6. UI INTERACTIONS & NAVIGATION
         // ==========================================
 
-        // Dropdown Menu
+        // Dropdown Menu (FIXED)
         const dropdown = document.getElementById('portfolioDropdown');
         const dropdownBtn = document.getElementById('dropdownBtn');
+        const megaMenu = document.getElementById('megaMenuContent');
 
         function closeDropdown() {
             dropdown.classList.remove('active');
         }
 
-        if (dropdownBtn && dropdown) {
-            dropdownBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                dropdown.classList.toggle('active');
-            });
-        }
+        // Toggle on click
+        dropdownBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent document click trigger
+            dropdown.classList.toggle('active');
+        });
 
+        // Click inside menu content shouldn't close it (optional, but good UX)
+        megaMenu.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        // Close when clicking outside
         document.addEventListener('click', (e) => {
-            if (dropdown && !dropdown.contains(e.target)) {
+            if (!dropdown.contains(e.target)) {
                 closeDropdown();
             }
         });
 
+        // Close on Escape key
         document.addEventListener('keydown', (e) => {
-            if (dropdown && dropdown.classList.contains('active')) {
+            if (e.key === 'Escape') {
                 closeDropdown();
+                if (document.querySelector('.mobile-menu.active')) {
+                    document.getElementById('mobileMenu').classList.remove('active');
+                }
             }
         });
 
+        // Close when a menu item is clicked
         dropdown.querySelectorAll('.mega-menu-item').forEach(item => {
             item.addEventListener('click', () => closeDropdown());
         });
@@ -1493,87 +2006,8 @@
                 searchOverlay.classList.add('active');
                 searchInput.focus();
             }
-            if (e.key === 'Escape') {
-                closeSearch();
-                if (document.querySelector('.mobile-menu.active')) {
-                    document.getElementById('mobileMenu').classList.remove('active');
-                }
-            }
         });
 
-        // Live Chat Widget
-        const chatButton = document.getElementById('chatButton');
-        const chatBox = document.getElementById('chatBox');
-        const chatInput = document.getElementById('chatInput');
-        const chatSendBtn = document.getElementById('chatSendBtn');
-        const chatMessages = document.getElementById('chatMessages');
-
-        chatButton.addEventListener('click', () => {
-            chatBox.classList.toggle('active');
-        });
-
-        function sendChatMessage() {
-            const message = chatInput.value.trim();
-            if (message) {
-                const userMsg = document.createElement('div');
-                userMsg.className = 'mb-4 text-right';
-                userMsg.innerHTML = `<div class="bg-yellow-600 text-white rounded-lg p-3 inline-block max-w-xs"><p class="text-sm">${message}</p></div>`;
-                chatMessages.appendChild(userMsg);
-                chatInput.value = '';
-
-                setTimeout(() => {
-                    const botMsg = document.createElement('div');
-                    botMsg.className = 'mb-4';
-                    botMsg.innerHTML = `<div class="bg-yellow-600 bg-opacity-20 rounded-lg p-3 inline-block max-w-xs"><p class="text-sm">Terima kasih atas pesan Anda! Saya akan segera merespons. 🎨</p></div>`;
-                    chatMessages.appendChild(botMsg);
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                }, 1000);
-
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-        }
-
-        chatSendBtn.addEventListener('click', sendChatMessage);
-        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChatMessage(); });
-
-        // Music Player
-        const playBtn = document.getElementById('playBtn');
-        const prevBtn = document.getElementById('prevBtn');
-        const nextBtn = document.getElementById('nextBtn');
-        let isPlaying = false;
-
-        const tracks = [
-            {
-                title: "Judul Lagu Anda",
-                artist: "Artis Anda",
-                // Placeholder audio for functionality
-                url: "" 
-            }
-        ];
-        let currentTrack = 0;
-
-        playBtn.addEventListener('click', () => {
-            isPlaying = !isPlaying;
-            playBtn.innerHTML = isPlaying ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
-            showNotification(isPlaying ? 'Music playing 🎵' : 'Music paused ⏸️', 'info');
-        });
-
-        prevBtn.addEventListener('click', () => {
-            currentTrack = (currentTrack - 1 + tracks.length) % tracks.length;
-            updateTrackInfo();
-        });
-
-        nextBtn.addEventListener('click', () => {
-            currentTrack = (currentTrack + 1) % tracks.length;
-            updateTrackInfo();
-        });
-
-        function updateTrackInfo() {
-            const track = tracks[currentTrack];
-            document.querySelector('.music-title').textContent = track.title;
-            document.querySelector('.music-artist').textContent = track.artist;
-            showNotification(`Now playing: ${track.title}`, 'info');
-        }
 
         // Theme Toggle
         const themeToggle = document.getElementById('themeToggle');
@@ -1748,10 +2182,10 @@
         // Mobile Menu
         const mobileMenuBtn = document.getElementById('mobileMenuBtn');
         const mobileMenu = document.getElementById('mobileMenu');
-        const closeMobileMenu = document.getElementById('closeMobileMenu');
+        const closeMobileMenuBtn = document.getElementById('closeMobileMenu');
 
         mobileMenuBtn.addEventListener('click', () => mobileMenu.classList.add('active'));
-        closeMobileMenu.addEventListener('click', () => mobileMenu.classList.remove('active'));
+        closeMobileMenuBtn.addEventListener('click', () => mobileMenu.classList.remove('active'));
 
         // Certificate Modal
         const modal = document.getElementById('certificateModal');
